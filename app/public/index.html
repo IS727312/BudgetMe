@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>BudgetMe | Your money, your PC</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div id="notice" role="status" aria-live="polite" hidden></div>
+  <main id="entry" class="entry">
+    <div class="welcome">
+      <div class="brand"><span class="brand-icon">B</span> BudgetMe <span class="pill">LOCAL ONLY</span></div>
+      <p class="eyebrow">A LITTLE CLARITY. A LOT MORE POSSIBILITY.</p>
+      <h1>Make room for<br>what matters.</h1>
+      <p class="lead">Your accounts, everyday spending, and next big goal.<br>One calm place. Right here on your PC.</p>
+      <div class="privacy-note"><strong>No cloud. No bank passwords.</strong><br>Your vault is encrypted with your passphrase. The app does not send financial data anywhere.</div>
+      <p class="muted">A compromised PC or browser extension can still access unlocked data. Use a trusted browser profile, strong passphrase, and Windows account.</p>
+    </div>
+    <section class="auth-card" aria-labelledby="auth-title">
+      <span class="eyebrow">YOUR PRIVATE SPACE</span>
+      <h2 id="auth-title">Opening your vault...</h2>
+      <p id="auth-description" class="muted">Checking the local application.</p>
+      <div id="open-panel" hidden>
+        <button class="primary full" id="open-budgetme" type="button">Open BudgetMe</button>
+        <p id="open-result" class="muted" role="status"></p>
+      </div>
+      <form id="auth-form" hidden>
+        <label id="name-label">What should we call you?<input name="name" id="name" maxlength="60" autocomplete="given-name" placeholder="Your preferred name"></label>
+        <label>Vault passphrase<input name="password" id="password" type="password" minlength="12" maxlength="128" required autocomplete="current-password" placeholder="At least 12 characters"></label>
+        <label id="confirm-label">Confirm passphrase<input id="password-confirm" type="password" maxlength="128" autocomplete="new-password"></label>
+        <p id="recovery-note" class="muted">Use four or more unrelated words. There is no password reset: without your passphrase, encrypted data cannot be recovered.</p>
+        <button class="primary full" id="auth-submit" type="submit">Unlock vault</button>
+      </form>
+      <p class="local-footnote">Refresh locks this tab. Click Open BudgetMe, then unlock. Your browser chooses a window or tab. Keep the original launcher window open.</p>
+    </section>
+  </main>
+  <div id="workspace" class="workspace" hidden>
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-icon">B</span> BudgetMe</div>
+      <div class="pill offline">OFFLINE BY DESIGN</div>
+      <nav aria-label="Main navigation">
+        <button data-page="overview" class="nav active">Overview</button>
+        <button data-page="transactions" class="nav">Transactions</button>
+        <button data-page="accounts" class="nav">Accounts &amp; income</button>
+        <button data-page="budgets" class="nav">Budgets</button>
+        <button data-page="goals" class="nav">Savings goals</button>
+        <button data-page="tools" class="nav">Import &amp; privacy</button>
+      </nav>
+      <div class="sidebar-bottom"><p>Your data stays here.<br><span class="muted">Encrypted on this PC.</span></p><button id="lock" class="secondary full">Lock vault</button></div>
+    </aside>
+    <main class="content">
+      <header class="topbar"><div><p class="eyebrow" id="greeting">YOUR MONEY AT A GLANCE</p><h1 id="page-title">Overview</h1></div><div class="header-actions"><label class="date-label">View period / balances as of<input type="date" id="view-date" min="1900-01-01" max="2200-12-31" required></label><button id="quick-add" class="primary">+ Add transaction</button></div></header>
+      <section id="page-overview" class="page">
+        <div class="intro-banner"><div><span class="eyebrow">BUILD A LITTLE MOMENTUM</span><h2>Your next chapter starts with a plan.</h2><p>See the patterns. Set the pace. Keep your goals in sight.</p></div><span class="banner-mark" aria-hidden="true">$</span></div>
+        <div id="onboarding" class="onboarding" hidden><h3>Let's build your picture</h3><p>Start with an account, add your income and expenses, then set a budget or goal. No credentials or bank connection needed.</p><button class="secondary" data-page="accounts">Add your first account</button></div>
+        <div id="metrics" class="metrics"></div>
+        <div class="two-columns charts"><article class="card"><div class="card-heading"><div><h2>Your cash flow</h2><p class="muted">12 calendar months ending in the selected month</p></div><div class="legend"><span class="income-dot"></span>Income <span class="expense-dot"></span>Expenses</div></div><div id="trend-chart"></div></article><article class="card"><h2>Where it went</h2><p class="muted">Expenses in the selected calendar month</p><div id="category-chart"></div></article></div>
+        <div class="two-columns"><article class="card"><div class="card-heading"><h2>Budget check-in</h2><button class="text-button" data-page="budgets">View all</button></div><div id="overview-budgets"></div></article><article class="card"><div class="card-heading"><h2>Something to look forward to</h2><button class="text-button" data-page="goals">View goals</button></div><div id="overview-goals"></div></article></div>
+        <article class="card"><div class="card-heading"><h2>Recent activity</h2><button class="text-button" data-page="transactions">View all</button></div><div id="recent-transactions"></div></article>
+      </section>
+      <section id="page-transactions" class="page" hidden>
+        <div class="two-columns form-layout"><article class="card"><h2 id="transaction-heading">Add a transaction</h2><p class="muted">Expenses and income are positive amounts. Transfers move money between accounts without changing cash flow.</p>
+          <form id="transaction-form">
+            <div class="form-row"><label>Type<select name="type" id="tx-type"><option value="expense">Expense</option><option value="income">Income</option><option value="transfer">Transfer / card payment</option></select></label><label>Date<input type="date" name="date" id="tx-date" min="1900-01-01" max="2200-12-31" required></label></div>
+            <label>From / receiving account<select name="accountId" id="tx-account" required></select></label>
+            <label id="tx-category-label">Category<select name="categoryId" id="tx-category"></select></label>
+            <label id="tx-destination-label" hidden>Destination account<select name="toAccountId" id="tx-destination"></select></label>
+            <div class="form-row"><label>Amount (USD)<input name="amount" inputmode="decimal" pattern="\d{1,10}(\.\d{1,2})?" placeholder="0.00" required></label><label>Description / income source<input name="description" maxlength="300" placeholder="Groceries, salary, freelance..."></label></div>
+            <button class="primary" type="submit">Save transaction</button>
+          </form>
+        </article><article class="card"><h2>Find your transactions</h2><label>Search description, account, or category<input id="search" type="search" placeholder="Search locally..."></label><div class="form-row"><label>From<input type="date" id="filter-from"></label><label>Through<input type="date" id="filter-to"></label></div><label>Type<select id="filter-type"><option value="">All types</option><option value="expense">Expenses</option><option value="income">Income</option><option value="transfer">Transfers</option></select></label><p class="muted">Balances include transactions up to the selected date. Budgets and cash flow include the full selected period, including scheduled future entries.</p><p class="muted">To correct a saved entry, remove it and add the replacement. Removing an entry also recalculates account balances and budgets.</p></article></div>
+        <article class="card"><div class="card-heading"><h2>Transaction history</h2><span id="transaction-count" class="muted"></span></div><div id="all-transactions"></div><div id="pagination" class="pagination"></div></article>
+      </section>
+      <section id="page-accounts" class="page" hidden>
+        <div class="two-columns form-layout"><article class="card"><h2>Add an account</h2><p class="muted">Track Fidelity, Bank of America, Amex, Chase, cash, and other sources separately. Names are labels, not linked accounts.</p><form id="account-form"><label>Account nickname<input name="name" maxlength="80" required placeholder="Chase checking"></label><label>Bank / institution<input name="institution" maxlength="80" placeholder="Chase" list="institutions"><datalist id="institutions"><option value="Fidelity"><option value="Bank of America"><option value="American Express"><option value="Chase"><option value="Cash"></datalist></label><div class="form-row"><label>Account type<select name="kind"><option value="checking">Checking</option><option value="savings">Savings</option><option value="credit">Credit card / liability</option><option value="investment">Investment</option><option value="cash">Cash</option></select></label><label>Opening balance (USD)<input name="opening" inputmode="decimal" value="0" pattern="-?\d{1,10}(\.\d{1,2})?" required></label></div><p class="muted">Enter card debt as a negative opening balance. Record card payments as transfers from checking to the card. Investments are manually valued; there is no market feed.</p><button class="primary" type="submit">Add account</button></form></article><article class="card"><h2>More than one income? You're covered.</h2><p>Add each salary, side project, dividend, or other income as an Income transaction. Choose the receiving account and use the description to identify its source.</p><p class="muted">Opening balances are your starting point before the transactions you add. They are not income. Avoid importing transactions already represented in your opening balances.</p><button class="secondary" id="add-income">+ Record income</button></article></div>
+        <div id="account-list" class="account-grid"></div>
+        <article class="card"><h2>Income sources in selected month</h2><div id="income-sources"></div></article>
+      </section>
+      <section id="page-budgets" class="page" hidden>
+        <div class="two-columns form-layout"><article class="card"><h2>Give every category a plan</h2><form id="budget-form"><label>Category<select name="categoryId" id="budget-category" required></select></label><div class="form-row"><label>Schedule<select name="frequency" id="budget-frequency"><option value="monthly">Monthly</option><option value="weekly">Weekly</option><option value="biweekly">Biweekly (14 days)</option><option value="quarterly">Quarterly</option><option value="yearly">Yearly</option></select></label><label>Limit (USD)<input name="limit" inputmode="decimal" pattern="\d{1,10}(\.\d{1,2})?" required placeholder="500.00"></label></div><label id="budget-anchor-label" hidden>First day of any biweekly cycle<input type="date" name="anchor" id="budget-anchor" min="1900-01-01" max="2200-12-31"></label><button class="primary" type="submit">Create budget</button></form></article><article class="card"><h2>Your schedule, clearly defined</h2><p>Weekly runs Monday through Sunday. Biweekly repeats every 14 days from your chosen anchor. Monthly, quarterly, and yearly use calendar boundaries.</p><p class="muted">Each budget counts expenses in its category, not transfers or income. Budgets reset every period; unused money does not roll over. Multiple schedules can track the same spending independently.</p><form id="category-form" class="inline-form"><label>New category<input name="name" maxlength="60" required placeholder="Pets, travel..."></label><button class="secondary" type="submit">Add</button></form><div id="category-list" class="chips"></div></article></div>
+        <div id="budget-list" class="two-columns"></div>
+      </section>
+      <section id="page-goals" class="page" hidden>
+        <div class="two-columns form-layout"><article class="card"><h2>A goal worth saving for</h2><form id="goal-form"><label>What are you working toward?<input name="name" maxlength="80" required placeholder="House down payment"></label><div class="form-row"><label>Target (USD)<input name="target" inputmode="decimal" pattern="\d{1,10}(\.\d{1,2})?" placeholder="25000.00" required></label><label>Already saved (USD)<input name="saved" inputmode="decimal" pattern="\d{1,10}(\.\d{1,2})?" value="0" required></label></div><label>Target date<input type="date" name="due" min="1900-01-01" max="2200-12-31" required></label><button class="primary" type="submit">Create goal</button></form></article><article class="card"><h2>Small steps still move you forward.</h2><p>A home, a car, retirement, or a little breathing room. Track the amount you have set aside and see how much remains.</p><p class="muted">Goals are planning records, not separate accounts. Updating saved progress does not move money or create an expense. Record real movements between accounts as transfers.</p></article></div><div id="goal-list" class="two-columns"></div>
+      </section>
+      <section id="page-tools" class="page" hidden>
+        <div class="two-columns"><article class="card"><h2>Import your offline transactions</h2><p class="muted">Export a CSV from your bank yourself, then adapt it to this template. No credentials, online sync, or Apple Pay feed.</p><code class="template">date,type,account,category,amount,description</code><p class="muted">Example: 2026-11-01,expense,Chase checking,Food,24.50,Groceries</p><p class="muted">Exact existing account/category names; type is expense or income. Blank expense category uses your first matching rule, then Other. Up to 2000 rows / 1 MB. Exact duplicate entries are skipped (same date, type, account, category, amount, description); legitimate identical purchases should be entered manually.</p><label>CSV file from your PC<input id="csv-file" type="file" accept=".csv,text/csv"></label><label>Or paste CSV<textarea id="csv-text" rows="6" maxlength="1000000" spellcheck="false"></textarea></label><button id="import-preview" class="secondary">Preview import</button><p id="import-result" role="status"></p><button id="import-confirm" class="primary" hidden>Confirm import</button></article><article class="card"><h2>Automatic categories, locally</h2><p class="muted">When an expense has no explicit category, its description is matched against these keywords, first rule first. Existing entries are not changed.</p><form id="rule-form"><label>Keyword<input name="keyword" maxlength="80" required placeholder="grocery"></label><label>Category<select name="categoryId" id="rule-category" required></select></label><button class="secondary" type="submit">Add rule</button></form><div id="rule-list"></div></article></div>
+        <div class="two-columns"><article class="card"><h2>Backups &amp; Excel export</h2><p>Files are saved only in <code>BudgetMe\app\exports</code>, never your browser Downloads folder.</p><button id="backup" class="secondary">Save encrypted backup</button><p class="muted">Backup files require the same passphrase. Backups on this PC do not protect against disk failure. Use the documented offline restore command.</p><hr><p class="warning">Excel exports are NOT encrypted. Anyone who can read that file can read your finances. Avoid cloud-synced folders. Delete plaintext exports when no longer needed.</p><label>Type EXPORT to acknowledge<input id="export-confirm" autocomplete="off" placeholder="EXPORT"></label><button id="excel-export" class="secondary">Save Excel-compatible XML</button><p class="muted">Opens in Excel as a multi-sheet workbook. It is SpreadsheetML (.xml), not .xlsx. All cells are literal text to prevent imported formulas from executing.</p><div id="export-list"></div></article><article class="card"><h2>Privacy is a boundary, not a promise.</h2><p>Your vault uses AES-256-GCM encryption and scrypt key derivation. It stays on this PC and is readable only after unlocking with your passphrase.</p><p>The app binds only to 127.0.0.1. No analytics, remote fonts, CDNs, telemetry, or financial-provider connections are implemented.</p><p class="warning">Windows malware, administrator access, browser extensions, screen capture, and a cloud-synced Documents folder are outside the app's protection. Check that this BudgetMe folder is not synced or shared. Encrypted files can be copied and attacked offline.</p><p class="muted">Auto-lock follows 15 minutes without an authenticated action; simply reading the page does not extend it. The app cannot guarantee zeroization of all JavaScript memory or secure erasure on an SSD. Closing the browser alone does not stop the server; lock first or stop the launcher.</p><button class="secondary" id="privacy-lock">Lock now</button></article></div>
+      </section>
+      <footer>USD only &middot; All data lives on this PC &middot; Not financial advice</footer>
+    </main>
+  </div>
+  <dialog id="confirm-dialog"><form method="dialog"><h2 id="confirm-title">Remove this item?</h2><p id="confirm-message"></p><div class="dialog-actions"><button value="cancel" class="secondary">Cancel</button><button value="remove" class="danger">Remove</button></div></form></dialog>
+</body>
+</html>
