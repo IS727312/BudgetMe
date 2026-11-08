@@ -101,3 +101,35 @@ test('abrupt process exit before replacement preserves current and requires expl
     await assert.rejects(store.initialized(), /interrupted encrypted write/);
   } finally { key.fill(0); await rm(dir, { recursive: true }); }
 });
+import { PassThrough } from 'node:stream';
+import readline from 'node:readline';
+import { confirmRestore } from '../tools/restore-confirm.mjs';
+
+test('restore confirmation accepts exact input and removes temporary listeners', async () => {
+  const input = new PassThrough(), output = new PassThrough();
+  const prompt = readline.createInterface({ input, output });
+  const baseline = process.listenerCount('SIGINT');
+  try {
+    const answer = confirmRestore(prompt);
+    input.write('RESTORE\n');
+    assert.equal(await answer, 'RESTORE');
+    assert.equal(prompt.listenerCount('SIGINT'), 0);
+    assert.equal(process.listenerCount('SIGINT'), baseline);
+  } finally { prompt.close(); input.destroy(); output.destroy(); }
+});
+test('restore confirmation EOF and Ctrl+C settle cancellation with listener cleanup', async () => {
+  for (const action of ['EOF', 'interface-SIGINT', 'process-SIGINT']) {
+    const input = new PassThrough(), output = new PassThrough();
+    const prompt = readline.createInterface({ input, output });
+    const baseline = process.listenerCount('SIGINT');
+    try {
+      const cancelled = assert.rejects(confirmRestore(prompt), /Restore cancelled; current vault unchanged/);
+      if (action === 'EOF') input.end();
+      else if (action === 'interface-SIGINT') prompt.emit('SIGINT');
+      else process.emit('SIGINT');
+      await cancelled;
+      assert.equal(prompt.listenerCount('SIGINT'), 0);
+      assert.equal(process.listenerCount('SIGINT'), baseline);
+    } finally { prompt.close(); input.destroy(); output.destroy(); }
+  }
+});

@@ -15,7 +15,7 @@ export const SOURCE_PATHS = Object.freeze([
   'app/test/server.test.mjs', 'app/test/source-control.test.mjs', 'app/test/vault.test.mjs',
   'app/tools/browser-check.mjs', 'app/tools/browser-driver.js', 'app/tools/fingerprint.mjs',
   'app/tools/launch.mjs', 'app/tools/record-review.mjs', 'app/tools/release-gate.mjs',
-  'app/tools/restore.mjs', 'app/tools/source-control.mjs'
+  'app/tools/restore.mjs', 'app/tools/restore-confirm.mjs', 'app/tools/source-control.mjs'
 ].sort());
 const allowed = new Set(SOURCE_PATHS);
 

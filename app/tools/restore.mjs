@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import readline from 'node:readline';
 import { ROOT } from '../server.mjs';
 import { unlock, atomicFile, acquireLock, exists } from '../lib/vault.mjs';
+import { confirmRestore } from './restore-confirm.mjs';
 
 const input = process.argv[2];
 if (!input || !process.stdin.isTTY) {
@@ -35,13 +36,17 @@ if (!input || !process.stdin.isTTY) {
     const restored = await unlock(encrypted, password);
     key = restored.key; secret = '';
     const prompt = readline.createInterface({ input: process.stdin, output: process.stdout });
-    const confirmation = await new Promise(resolveAnswer => prompt.question('Replace the current vault with this verified backup? Type RESTORE: ', resolveAnswer));
-    prompt.close();
+    let confirmation;
+    try { confirmation = await confirmRestore(prompt); }
+    finally { prompt.close(); }
     if (confirmation !== 'RESTORE') throw new Error('Restore cancelled; current vault unchanged.');
     const target = join(ROOT, 'data', 'vault.json');
-    if (await exists(target)) await atomicFile(join(ROOT, 'data', 'vault.pre-restore.json'), await readFile(target, 'utf8'));
+    const hadCurrent = await exists(target);
+    if (hadCurrent) await atomicFile(join(ROOT, 'data', 'vault.pre-restore.json'), await readFile(target, 'utf8'));
     await atomicFile(target, encrypted);
-    console.log('Verified encrypted backup restored. Previous current vault retained as data\\vault.pre-restore.json.');
+    console.log(hadCurrent
+      ? 'Verified encrypted backup restored. Previous current vault retained as data\\vault.pre-restore.json.'
+      : 'Verified encrypted backup restored. No previous current vault existed.');
   } catch (error) { console.error(`Restore stopped: ${error.message}`); process.exitCode = 1; }
   finally { key?.fill(0); if (release) await release(); }
 }

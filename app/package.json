@@ -1,6 +1,6 @@
 {
   "name": "budgetme-local",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "Dependency-free, encrypted, offline personal finance",
   "engines": { "node": ">=24.16.0" },

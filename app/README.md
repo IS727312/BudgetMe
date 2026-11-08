@@ -131,8 +131,13 @@ node tools\restore.mjs data\vault.previous.json
 ```
 
 The tool hides passphrase input, verifies the backup, and requires `RESTORE`.
+Typing anything else, closing input, or pressing Ctrl+C at either prompt cancels
+without replacing the current vault and releases the restore's ownership lock.
 It retains the old current file in `data\vault.pre-restore.json`, then replaces
 only the encrypted current vault. No passphrase is a command-line argument.
+If no current vault existed, a verified, explicitly confirmed restore creates it
+and reports that there was no previous current file; it does not invent a retained
+snapshot. Missing current with previous snapshots still blocks empty setup.
 It never restores silently. The backup is of an earlier point in time.
 
 An exclusive `data\process.lock` protects against concurrent writers. A killed

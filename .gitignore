@@ -44,4 +44,5 @@
 !/app/tools/record-review.mjs
 !/app/tools/release-gate.mjs
 !/app/tools/restore.mjs
+!/app/tools/restore-confirm.mjs
 !/app/tools/source-control.mjs
