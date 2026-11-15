@@ -31,6 +31,15 @@ Errors stay visible until you press a key. If no browser appears, check Windows
 default-browser settings and double-click the launcher again. A stale lock or
 an older running version is an explicit error, not permission to remove locks.
 
+The native browser helper has an eight-second acknowledgement deadline, not
+a process-killing timeout. BudgetMe never kills that helper or its browser
+descendants when acknowledgement is late, including during normal server
+shutdown. A late reply reports "not confirmed" rather than claiming the window
+failed. Only one native request may remain pending; further opens are refused
+explicitly until that helper exits. If a window appeared, continue there.
+This removes a confirmed Windows descendant-termination hazard; it does not
+establish the cause of every Edge window closure or guarantee browser stability.
+
 Alternatively, in PowerShell:
 
 ```powershell

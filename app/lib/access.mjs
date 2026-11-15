@@ -12,6 +12,53 @@ export class AccessError extends Error {
   }
 }
 
+export function createBrowserRequester({ spawnProcess = spawn, acknowledgementMs = 8000 } = {}) {
+  let active = null;
+  return (executable, args, options) => new Promise((done, reject) => {
+    if (active) {
+      reject(new AccessError('A previous Windows opening request is still pending. Continue in its BudgetMe window if one appeared; otherwise check Windows default-browser settings before relaunching.'));
+      return;
+    }
+    let child;
+    try { child = spawnProcess(executable, args, { cwd: options.cwd, env: options.env, shell: false, windowsHide: true, stdio: 'ignore' }); }
+    catch {
+      reject(new AccessError('Windows could not request the default browser. Check its settings, then try the launcher again.'));
+      return;
+    }
+    active = child;
+    let settled = false, timer;
+    const finish = error => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (error) reject(error); else done();
+    };
+    const cleanup = () => {
+      clearTimeout(timer);
+      child.removeListener('error', failed);
+      child.removeListener('exit', exited);
+      if (active === child) active = null;
+    };
+    const failed = () => {
+      cleanup();
+      finish(new AccessError('Windows could not request the default browser. Check its settings, then try the launcher again.'));
+    };
+    const exited = code => {
+      cleanup();
+      finish(code === 0 ? null : new AccessError('Windows did not confirm the browser request. If BudgetMe appeared, continue there; otherwise check default-browser settings.'));
+    };
+    child.once('error', failed);
+    child.once('exit', exited);
+    child.unref();
+    timer = setTimeout(() => {
+      finish(new AccessError('Windows has not confirmed opening yet. If BudgetMe appeared, continue there. A previous opening request is still pending.'));
+    }, acknowledgementMs);
+    timer.unref();
+  });
+}
+
+const requestWindowsBrowser = createBrowserRequester();
+
 export function browserArguments(address) {
   const url = new URL(address);
   if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || !url.port ||
@@ -38,17 +85,7 @@ export async function openWindowsBrowser(address, root) {
     npm_config_update_notifier: 'false'
   });
   const executable = join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'rundll32.exe');
-  await new Promise((done, reject) => {
-    const child = spawn(executable, args, {
-      cwd: resolve(root), env, shell: false, windowsHide: true,
-      stdio: 'ignore', timeout: 8000
-    });
-    child.once('error', () => reject(new AccessError('Windows could not request the default browser. Check its default-browser settings, then double-click Launch BudgetMe.cmd again.')));
-    child.once('exit', code => {
-      if (code === 0) done();
-      else reject(new AccessError('The default-browser request failed or timed out. Check Windows default-browser settings, then double-click Launch BudgetMe.cmd again.'));
-    });
-  });
+  await requestWindowsBrowser(executable, args, { cwd: resolve(root), env });
 }
 
 export function createAccess({ origin, launchToken, opener, clock = Date.now }) {

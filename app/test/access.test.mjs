@@ -5,8 +5,12 @@ import { join } from 'node:path';
 import net from 'node:net';
 import http from 'node:http';
 import { randomBytes } from 'node:crypto';
+import { EventEmitter } from 'node:events';
+import { spawn } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
+import { setTimeout as wait } from 'node:timers/promises';
 import { ROOT, createBudgetServer } from '../server.mjs';
-import { AccessError, browserArguments, createAccess, brokerAddress, requestReopen } from '../lib/access.mjs';
+import { AccessError, browserArguments, createAccess, brokerAddress, requestReopen, createBrowserRequester } from '../lib/access.mjs';
 import { startOrReopen } from '../lib/startup.mjs';
 
 const password = 'synthetic-only access regression passphrase';
@@ -44,6 +48,110 @@ test('native opener arguments contain only a fixed loopback destination and a sh
     `http://127.0.0.1:47821/elsewhere#open=${'a'.repeat(64)}`,
     'http://127.0.0.1:47821/#open=anything&calc.exe'
   ]) assert.throws(() => browserArguments(address));
+});
+
+test('native soft deadline never kills, bounds pending helpers, and cleans late outcomes', async () => {
+  const children = [], options = [], hold = setInterval(() => {}, 1000);
+  const request = createBrowserRequester({ acknowledgementMs: 20, spawnProcess: (_executable, _args, settings) => {
+    const child = new EventEmitter();
+    child.unref = () => { child.unreferenced = true; };
+    child.kill = () => { throw new Error('Native helper must never be killed.'); };
+    children.push(child); options.push(settings); return child;
+  } });
+  try {
+    await assert.rejects(request('fixed', ['argument with spaces'], { cwd: ROOT, env: {}, timeout: 1, killSignal: 'SIGTERM' }),
+      error => error instanceof AccessError && /not confirmed opening yet/.test(error.message));
+    assert.equal(children[0].unreferenced, true);
+    assert.equal(Object.hasOwn(options[0], 'timeout'), false);
+    assert.equal(Object.hasOwn(options[0], 'killSignal'), false);
+    assert.equal(options[0].shell, false);
+    assert.equal(options[0].stdio, 'ignore');
+    await assert.rejects(request('fixed', [], {}), /previous Windows opening request is still pending/);
+    assert.equal(children.length, 1);
+    children[0].emit('exit', 0);
+    assert.equal(children[0].listenerCount('exit'), 0);
+    assert.equal(children[0].listenerCount('error'), 0);
+    const next = request('fixed', [], {});
+    children[1].emit('exit', 0);
+    await next;
+    const nonzero = assert.rejects(request('fixed', [], {}), /did not confirm/);
+    children[2].emit('exit', 1); await nonzero;
+    const failed = assert.rejects(request('fixed', [], {}), /could not request/);
+    children[3].emit('error', new Error('secret URL must not be echoed')); await failed;
+    const late = assert.rejects(request('fixed', [], {}), /not confirmed opening yet/);
+    await late;
+    children[4].emit('exit', 1);
+    assert.equal(children[4].listenerCount('exit'), 0);
+    const fresh = request('fixed', [], {});
+    children[5].emit('exit', 0); await fresh;
+  } finally { clearInterval(hold); }
+});
+
+test('native spawn throws are explicit and do not retain the pending slot or expose errors', async () => {
+  let calls = 0;
+  const request = createBrowserRequester({ spawnProcess: () => { calls++; throw new Error('private argument'); } });
+  for (let i = 0; i < 2; i++) {
+    await assert.rejects(request('fixed', [], {}), error =>
+      error instanceof AccessError && /could not request/.test(error.message) && !error.message.includes('private'));
+  }
+  assert.equal(calls, 2);
+});
+
+test('real soft acknowledgement preserves a bounded helper and descendant after its deadline', async () => {
+  const directory = await mkdtemp(join(ROOT, '.runtime', 'native-lifetime-'));
+  const childPath = join(directory, 'descendant.mjs'), helperPath = join(directory, 'helper.mjs');
+  const heartbeat = join(directory, 'heartbeat.txt');
+  await writeFile(childPath, `import {writeFileSync} from 'node:fs';
+const tick=()=>writeFileSync(process.argv[2],process.pid+'\\n'+Date.now());
+tick();const interval=setInterval(tick,100);
+setTimeout(()=>{clearInterval(interval);process.exit(0)},5000);`);
+  await writeFile(helperPath, `import {spawn} from 'node:child_process';
+spawn(process.execPath,[process.argv[2],process.argv[3]],{cwd:process.cwd(),env:process.env,stdio:'ignore'});
+setTimeout(()=>process.exit(0),6000);`);
+  let helper, exited = false;
+  const request = createBrowserRequester({ acknowledgementMs: 2000, spawnProcess: (...args) => {
+    helper = spawn(...args); helper.once('exit', () => { exited = true; }); return helper;
+  } });
+  try {
+    await assert.rejects(request(process.execPath, [helperPath, childPath, heartbeat], { cwd: directory, env: process.env }),
+      /not confirmed opening yet/);
+    const deadline = Date.now();
+    await wait(500);
+    const [pid, at] = (await readFile(heartbeat, 'utf8')).split('\n').map(Number);
+    assert.ok(at > deadline + 200, 'Descendant heartbeat stopped at the soft deadline.');
+    process.kill(pid, 0);
+    assert.equal(exited, false);
+    await assert.rejects(request(process.execPath, [], { cwd: directory, env: process.env }), /still pending/);
+    await wait(4500);
+    assert.equal(exited, true, 'Bounded helper did not finish naturally.');
+    assert.throws(() => process.kill(pid, 0), error => error.code === 'ESRCH');
+  } finally {
+    if (helper && !exited) {
+      await new Promise((resolve, reject) => {
+        helper.once('exit', resolve); helper.once('error', reject);
+      });
+    }
+    await rm(directory, { recursive: true });
+  }
+});
+
+test('pending native helper and acknowledgement timer do not keep their controller alive', async () => {
+  const directory = await mkdtemp(join(ROOT, '.runtime', 'native-shutdown-'));
+  const helperPath = join(directory, 'helper.mjs'), controllerPath = join(directory, 'controller.mjs');
+  const accessURL = pathToFileURL(join(ROOT, 'lib', 'access.mjs')).href;
+  await writeFile(helperPath, 'setTimeout(()=>process.exit(0),2500);');
+  await writeFile(controllerPath, `import {createBrowserRequester} from ${JSON.stringify(accessURL)};
+createBrowserRequester()(process.execPath,[process.argv[2]],{cwd:process.cwd(),env:process.env}).catch(()=>{});`);
+  const started = Date.now();
+  const controller = spawn(process.execPath, [controllerPath, helperPath], { cwd: directory, env: process.env, stdio: 'ignore' });
+  try {
+    const code = await new Promise((resolve, reject) => {
+      controller.once('exit', resolve); controller.once('error', reject);
+    });
+    assert.equal(code, 0);
+    assert.ok(Date.now() - started < 1500, 'Unreferenced helper or timer delayed controller shutdown.');
+    await wait(3000);
+  } finally { await rm(directory, { recursive: true }); }
 });
 
 test('one-use grants expire at exactly 60 seconds, never revoke capabilities, and separate HTTP from launcher cooldowns', async () => {
